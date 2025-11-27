@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+
+  ### ---------- MINIO STORAGE (S3 replacement) ----------
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    volumes:
+      - minio_data:/data
+
+  ### ---------- MLflow Tracking Server ----------
+  mlflow:
+    image: ghcr.io/mlflow/mlflow
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      BACKEND_STORE_URI: sqlite:///mlflow.db
+      ARTIFACT_ROOT: s3://mlflow/
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: admin123
+    depends_on:
+      - minio
+    volumes:
+      - ./mlflow:/mlflow
+
+  ### ---------- Apache Airflow ----------
+  airflow:
+    image: apache/airflow:2.8.0
+    container_name: airflow
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__WEBSERVER__RBAC: "true"
+
+      ### ACCESS MINIO THROUGH AIRFLOW ###
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: admin123
+      AWS_DEFAULT_REGION: us-east-1
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+
+    volumes:
+      - ./airflow:/opt/airflow
+    depends_on:
+      - minio
+      - mlflow
+
+volumes:
+  minio_data:
