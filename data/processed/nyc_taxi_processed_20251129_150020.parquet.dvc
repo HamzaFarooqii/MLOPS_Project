@@ -1,0 +1,5 @@
+outs:
+- md5: 01daff8610292450a6ffbdb7f5c57c78
+  size: 173234
+  hash: md5
+  path: nyc_taxi_processed_20251129_150020.parquet
