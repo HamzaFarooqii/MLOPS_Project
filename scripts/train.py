@@ -2,7 +2,9 @@ import glob
 import os
 from typing import List
 
+import json
 import mlflow
+import os
 import pandas as pd
 
 PROCESSED_DIR = os.getenv("PROCESSED_DIR", "./data/processed")
@@ -93,3 +95,9 @@ def train_model():
             f"Training complete. RMSE={rmse:.4f}, MAE={mae:.4f}, R2={r2:.4f}. "
             f"Logged to MLflow run {mlflow.active_run().info.run_id}"
         )
+
+    # Persist metrics locally for CI/CML comparison
+    metrics_out = os.getenv("METRICS_OUT", "metrics/current.json")
+    os.makedirs(os.path.dirname(metrics_out), exist_ok=True)
+    with open(metrics_out, "w") as f:
+        json.dump({"rmse": rmse, "mae": mae, "r2": r2}, f)
