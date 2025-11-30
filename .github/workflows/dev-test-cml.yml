@@ -66,4 +66,4 @@ jobs:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm install -g @dvcorg/cml@latest
-          cml comment --publish report.md
+          cml comment create report.md
