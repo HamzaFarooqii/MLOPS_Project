@@ -1,0 +1,18 @@
+[core]
+    remote = dagshub
+    no_scm = true
+
+[remote "dagshub"]
+    url = https://dagshub.com/HamzaFarooqii/my-first-repo.dvc
+
+[remote "minio"]
+    url = s3://rps-processed
+    endpointurl = http://minio:9000
+    access_key_id = admin
+    secret_access_key = admin123
+
+[remote "minio_s3"]
+    url = s3://taxi-processed
+    endpointurl = http://minio:9000
+    access_key_id = admin
+    secret_access_key = admin123

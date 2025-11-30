@@ -1,5 +1,14 @@
 __pycache__/
 *.pyc
-mlruns/
-data/
 .env
+.env.local
+mlruns/
+data/*
+!data/**/*.dvc
+airflow/logs/
+airflow/venv/
+.dvc/config.local
+logs/
+airflow/*.pid
+airflow/*.db
+.dvc/config.local

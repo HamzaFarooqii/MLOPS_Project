@@ -1,0 +1,6 @@
+FROM apache/airflow:2.8.0
+
+# Install all Python dependencies up front as the airflow user to avoid repeated installs on start
+USER airflow
+COPY requirements.txt /requirements.txt
+RUN pip install --user --no-cache-dir -r /requirements.txt

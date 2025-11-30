@@ -1,22 +1,18 @@
-version: "3.9"
-
 services:
 
-  ### ---------- MINIO STORAGE (S3 replacement) ----------
   minio:
     image: minio/minio
     container_name: minio
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web console
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: admin123
     volumes:
       - minio_data:/data
 
-  ### ---------- MLflow Tracking Server ----------
   mlflow:
     image: ghcr.io/mlflow/mlflow
     container_name: mlflow
@@ -28,35 +24,97 @@ services:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: admin123
+      MLFLOW_TRACKING_SERVER_ALLOWED_HOSTS: "*"
+      MLFLOW_TRACKING_SERVER_CORS_ORIGINS: "*"
     depends_on:
       - minio
     volumes:
       - ./mlflow:/mlflow
+    command: mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root s3://mlflow/ --host 0.0.0.0 --port 5000 --serve-artifacts --allowed-hosts "*" --cors-allowed-origins "*"
 
-  ### ---------- Apache Airflow ----------
-  airflow:
-    image: apache/airflow:2.8.0
-    container_name: airflow
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    image: custom-airflow:latest
+    container_name: airflow-webserver
     restart: always
     ports:
-      - "8080:8080"
+      - "8082:8080"
     environment:
+      AIRFLOW_HOME: /opt/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__WEBSERVER__RBAC: "true"
-
-      ### ACCESS MINIO THROUGH AIRFLOW ###
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/airflow/dags
+      AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 120
       AWS_ACCESS_KEY_ID: admin
       AWS_SECRET_ACCESS_KEY: admin123
       AWS_DEFAULT_REGION: us-east-1
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-
+      RAW_DIR: /opt/airflow/data/raw
+      PROCESSED_DIR: /opt/airflow/data/processed
+      SODA_ENDPOINT: https://data.cityofnewyork.us/resource/m6nq-qud6.json
+      SODA_LIMIT: 1000
+      SODA_APP_TOKEN: ${SODA_APP_TOKEN:-}
+      MLFLOW_TRACKING_URI: https://dagshub.com/HamzaFarooqii/my-first-repo.mlflow
+      MLFLOW_TRACKING_USERNAME: HamzaFarooqii
+      MLFLOW_TRACKING_PASSWORD: 4c1715f4e16a442dcfc46019ea52581c9a8227fe
+      MLFLOW_S3_ENDPOINT_URL: https://dagshub.com
+      DVC_REMOTE: dagshub
+      DVC_ROOT: /opt/airflow
+      PYTHONPATH: /opt/airflow:/opt/airflow/scripts
     volumes:
-      - ./airflow:/opt/airflow
+      - ./:/opt/airflow
     depends_on:
       - minio
       - mlflow
+    command: >
+      bash -c "
+      set -e;
+      airflow db migrate;
+      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true;
+      exec airflow webserver
+      "
+
+  airflow-scheduler:
+    image: custom-airflow:latest
+    container_name: airflow-scheduler
+    restart: always
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__WEBSERVER__RBAC: "true"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/airflow/dags
+      AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 120
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: admin123
+      AWS_DEFAULT_REGION: us-east-1
+      RAW_DIR: /opt/airflow/data/raw
+      PROCESSED_DIR: /opt/airflow/data/processed
+      SODA_ENDPOINT: https://data.cityofnewyork.us/resource/m6nq-qud6.json
+      SODA_LIMIT: 1000
+      SODA_APP_TOKEN: ${SODA_APP_TOKEN:-}
+      MLFLOW_TRACKING_URI: https://dagshub.com/HamzaFarooqii/my-first-repo.mlflow
+      MLFLOW_TRACKING_USERNAME: HamzaFarooqii
+      MLFLOW_TRACKING_PASSWORD: 4c1715f4e16a442dcfc46019ea52581c9a8227fe
+      MLFLOW_S3_ENDPOINT_URL: https://dagshub.com
+      DVC_REMOTE: dagshub
+      DVC_ROOT: /opt/airflow
+      PYTHONPATH: /opt/airflow:/opt/airflow/scripts
+    volumes:
+      - ./:/opt/airflow
+    depends_on:
+      - minio
+      - mlflow
+    command: >
+      bash -c "
+      set -e;
+      airflow db migrate;
+      exec airflow scheduler
+      "
 
 volumes:
   minio_data:
