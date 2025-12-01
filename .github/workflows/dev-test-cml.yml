@@ -1,0 +1,73 @@
+name: Model Compare (dev -> test)
+
+on:
+  pull_request:
+    branches: [test]
+
+jobs:
+  train-and-compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Train and capture metrics
+        env:
+          MLFLOW_TRACKING_URI: https://dagshub.com/HamzaFarooqii/my-first-repo.mlflow
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+          METRICS_OUT: metrics/current.json
+        run: |
+          python scripts/train.py || true
+          test -f metrics/current.json
+
+      - name: Compare to baseline
+        id: compare
+        run: |
+          python - <<'PY'
+          import json
+          with open("metrics/baseline.json") as f: base = json.load(f)
+          with open("metrics/current.json") as f: curr = json.load(f)
+          report_lines = [
+              "| metric | baseline | current | change |",
+              "|---|---|---|---|",
+          ]
+          status = "pass"
+          for m in ["rmse","mae"]:
+              b, c = base[m], curr[m]
+              delta = c - b
+              report_lines.append(f"| {m} | {b:.4f} | {c:.4f} | {delta:+.4f} |")
+              if c > b:  # higher error is worse
+                  status = "fail"
+          b, c = base["r2"], curr["r2"]
+          delta = c - b
+          report_lines.append(f"| r2 | {b:.4f} | {c:.4f} | {delta:+.4f} |")
+          if c < b:  # lower r2 is worse
+              status = "fail"
+          print("\n".join(report_lines))
+          with open("report.md","w") as f:
+              f.write("\n".join(report_lines))
+          if status != "pass":
+              exit(1)
+          PY
+
+      - name: Post CML report
+        if: always()
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f report.md ]; then
+            npm install -g @dvcorg/cml@latest
+            cml comment create report.md
+          else
+            echo "report.md not found, skipping CML comment."
+          fi

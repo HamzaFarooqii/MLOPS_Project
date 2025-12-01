@@ -11,4 +11,5 @@ airflow/venv/
 logs/
 airflow/*.pid
 airflow/*.db
+airflow.db
 .dvc/config.local
