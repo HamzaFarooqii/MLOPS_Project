@@ -6,3 +6,6 @@ mlflow
 boto3
 dvc[s3]
 scikit-learn
+fastapi
+uvicorn
+prometheus-client

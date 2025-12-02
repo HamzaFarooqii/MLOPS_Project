@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  api:
+    image: ${DOCKERHUB_USERNAME:-local}/taxi-rps:latest
+    environment:
+      MLFLOW_TRACKING_URI: https://dagshub.com/HamzaFarooqii/my-first-repo.mlflow
+      MODEL_URI: models:/taxi_rps_model/Production
+    ports:
+      - "8000:8000"
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
