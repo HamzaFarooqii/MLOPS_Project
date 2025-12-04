@@ -57,10 +57,10 @@ services:
       SODA_ENDPOINT: https://data.cityofnewyork.us/resource/m6nq-qud6.json
       SODA_LIMIT: 1000
       SODA_APP_TOKEN: ${SODA_APP_TOKEN:-}
-      MLFLOW_TRACKING_URI: https://dagshub.com/HamzaFarooqii/my-first-repo.mlflow
-      MLFLOW_TRACKING_USERNAME: HamzaFarooqii
-      MLFLOW_TRACKING_PASSWORD: 4c1715f4e16a442dcfc46019ea52581c9a8227fe
-      MLFLOW_S3_ENDPOINT_URL: https://dagshub.com
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-https://dagshub.com/your-org/your-repo.mlflow}
+      MLFLOW_TRACKING_USERNAME: ${MLFLOW_TRACKING_USERNAME:-}
+      MLFLOW_TRACKING_PASSWORD: ${MLFLOW_TRACKING_PASSWORD:-}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL:-https://dagshub.com}
       DVC_REMOTE: dagshub
       DVC_ROOT: /opt/airflow
       PYTHONPATH: /opt/airflow:/opt/airflow/scripts
@@ -73,7 +73,7 @@ services:
       bash -c "
       set -e;
       airflow db migrate;
-      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true;
+      airflow users create --username admin --password ${AIRFLOW_ADMIN_PASSWORD:-admin} --firstname Admin --lastname User --role Admin --email admin@example.com || true;
       exec airflow webserver
       "
 
@@ -97,10 +97,10 @@ services:
       SODA_ENDPOINT: https://data.cityofnewyork.us/resource/m6nq-qud6.json
       SODA_LIMIT: 1000
       SODA_APP_TOKEN: ${SODA_APP_TOKEN:-}
-      MLFLOW_TRACKING_URI: https://dagshub.com/HamzaFarooqii/my-first-repo.mlflow
-      MLFLOW_TRACKING_USERNAME: HamzaFarooqii
-      MLFLOW_TRACKING_PASSWORD: 4c1715f4e16a442dcfc46019ea52581c9a8227fe
-      MLFLOW_S3_ENDPOINT_URL: https://dagshub.com
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-https://dagshub.com/your-org/your-repo.mlflow}
+      MLFLOW_TRACKING_USERNAME: ${MLFLOW_TRACKING_USERNAME:-}
+      MLFLOW_TRACKING_PASSWORD: ${MLFLOW_TRACKING_PASSWORD:-}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL:-https://dagshub.com}
       DVC_REMOTE: dagshub
       DVC_ROOT: /opt/airflow
       PYTHONPATH: /opt/airflow:/opt/airflow/scripts
@@ -112,7 +112,6 @@ services:
     command: >
       bash -c "
       set -e;
-      airflow db migrate;
       exec airflow scheduler
       "
 

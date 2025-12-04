@@ -41,26 +41,31 @@ with DAG(
     t2_quality = PythonOperator(
         task_id="data_quality_check",
         python_callable=run_quality_check,
+        op_kwargs={"file_path": "{{ ti.xcom_pull(task_ids='extract_live_data') }}"},
     )
 
     t3_transform = PythonOperator(
         task_id="transform_data",
         python_callable=transform_data,
+        op_kwargs={"raw_path": "{{ ti.xcom_pull(task_ids='data_quality_check') }}"},
     )
 
     t4_profile = PythonOperator(
         task_id="profile_and_log",
         python_callable=profile_and_log,
+        op_kwargs={"processed_path": "{{ ti.xcom_pull(task_ids='transform_data') }}"},
     )
 
     t5_train = PythonOperator(
         task_id="train_model",
         python_callable=train_model,
+        op_kwargs={"processed_path": "{{ ti.xcom_pull(task_ids='transform_data') }}"},
     )
 
     t6_save = PythonOperator(
         task_id="save_to_minio_dvc",
         python_callable=save_to_minio_and_dvc,
+        op_kwargs={"processed_path": "{{ ti.xcom_pull(task_ids='transform_data') }}"},
     )
 
     t1_extract >> t2_quality >> t3_transform >> t4_profile >> t5_train >> t6_save

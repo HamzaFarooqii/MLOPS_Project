@@ -1,5 +1,6 @@
 import glob
 import os
+from typing import Optional
 
 import pandas as pd
 
@@ -7,10 +8,15 @@ RAW_DIR = os.getenv("RAW_DIR", "./data/raw")
 PROCESSED_DIR = os.getenv("PROCESSED_DIR", "./data/processed")
 
 
-def transform_data():
+def transform_data(raw_path: Optional[str] = None):
     """Feature engineering on the latest raw snapshot."""
-    latest_file = max(glob.glob(os.path.join(RAW_DIR, "*.parquet")), key=os.path.getctime)
-    df = pd.read_parquet(latest_file)
+    if raw_path is None:
+        candidates = glob.glob(os.path.join(RAW_DIR, "*.parquet"))
+        if not candidates:
+            raise FileNotFoundError("No raw parquet files found for transform.")
+        raw_path = max(candidates, key=os.path.getctime)
+
+    df = pd.read_parquet(raw_path)
 
     # Ensure numeric types for distance before lag/rolling
     df["trip_distance"] = pd.to_numeric(df["trip_distance"], errors="coerce")
@@ -42,3 +48,7 @@ def transform_data():
 
     print(f"Processed data saved to {processed_file}")
     return processed_file
+
+
+if __name__ == "__main__":
+    transform_data()

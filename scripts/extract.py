@@ -10,13 +10,14 @@ LIMIT = int(os.getenv("SODA_LIMIT", 1000))  # unauthenticated limits may be lowe
 SODA_APP_TOKEN = os.getenv("SODA_APP_TOKEN")
 
 
-def extract_data():
+def extract_data(limit=None):
     """Pull the latest NYC taxi trips from the live SODA API and persist raw data."""
-    print(f"Fetching latest data from {API_ENDPOINT} (limit={LIMIT})...")
+    limit = limit or LIMIT
+    print(f"Fetching latest data from {API_ENDPOINT} (limit={limit})...")
     headers = {"X-App-Token": SODA_APP_TOKEN} if SODA_APP_TOKEN else {}
     response = requests.get(
         API_ENDPOINT,
-        params={"$limit": LIMIT, "$order": "tpep_pickup_datetime DESC"},
+        params={"$limit": limit, "$order": "tpep_pickup_datetime DESC"},
         headers=headers,
         timeout=30,
     )
@@ -35,3 +36,7 @@ def extract_data():
 
     print(f"Raw data saved to {file_path}")
     return file_path
+
+
+if __name__ == "__main__":
+    extract_data()
