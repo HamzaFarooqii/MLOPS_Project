@@ -10,8 +10,6 @@ jobs:
       contents: read
       packages: write
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_USERNAME || github.repository_owner }}/taxi-rps
     steps:
       - uses: actions/checkout@v4
 
@@ -33,19 +31,33 @@ jobs:
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
           MODEL_URI: ${{ secrets.MODEL_URI }}
         run: |
-          mkdir -p model_download
-          mlflow models download -m "${MODEL_URI:-models:/taxi_rps_model/Production}" -d model_download
+          python - <<'PY'
+import os
+import mlflow
+
+tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+model_uri = os.environ.get("MODEL_URI") or "models:/taxi_rps_model/Production"
+out_dir = "model_download"
+os.makedirs(out_dir, exist_ok=True)
+
+if tracking_uri:
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_registry_uri(tracking_uri)
+
+mlflow.artifacts.download_artifacts(model_uri, dst_path=out_dir)
+print(f"Downloaded {model_uri} to {out_dir}")
+PY
 
       - name: Build image
         run: |
-          if [ -z "${IMAGE_NAME%%/taxi-rps}" ]; then
-            echo "IMAGE_NAME is empty. Set DOCKERHUB_USERNAME secret."; exit 1;
-          fi
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then echo "Set DOCKERHUB_USERNAME secret"; exit 1; fi
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
           TAG=${GITHUB_SHA::7}
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG -f server/Dockerfile .
 
       - name: Login & push
         run: |
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           TAG=${GITHUB_SHA::7}
           docker push $IMAGE_NAME:latest
@@ -53,6 +65,7 @@ jobs:
 
       - name: Smoke test container
         run: |
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
           TAG=${GITHUB_SHA::7}
           docker run -d --rm -p 8000:8000 \
             -e SKIP_MODEL_LOAD=true \
