@@ -131,7 +131,8 @@ def train_model(processed_path: Optional[str] = None):
             preds = model.predict(X_test)
             signature = infer_signature(X_test, preds)
 
-            rmse = mean_squared_error(y_test, preds, squared=False)
+            mse = mean_squared_error(y_test, preds)
+            rmse = mse**0.5
             mae = mean_absolute_error(y_test, preds)
             r2 = r2_score(y_test, preds)
 
@@ -178,7 +179,8 @@ def train_model(processed_path: Optional[str] = None):
         if rmse is None:
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
-            rmse = mean_squared_error(y_test, preds, squared=False)
+            mse = mean_squared_error(y_test, preds)
+            rmse = mse**0.5
             mae = mean_absolute_error(y_test, preds)
             r2 = r2_score(y_test, preds)
 
