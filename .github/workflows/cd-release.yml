@@ -10,6 +10,11 @@ jobs:
       contents: read
       packages: write
     runs-on: ubuntu-latest
+    env:
+      MODEL_URI: ${{ secrets.MODEL_URI }}
+      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       
@@ -57,25 +62,23 @@ jobs:
       
       - name: Build image
         run: |
-          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
-            echo "Set DOCKERHUB_USERNAME secret"
-            exit 1
-          fi
-          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME || github.repository_owner }}/taxi-rps"
+          echo "Using IMAGE_NAME=$IMAGE_NAME"
           TAG=${GITHUB_SHA::7}
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG -f server/Dockerfile .
       
       - name: Login & push
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
         run: |
-          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME || github.repository_owner }}/taxi-rps"
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           TAG=${GITHUB_SHA::7}
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:$TAG
-      
+
       - name: Smoke test container
         run: |
-          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME || github.repository_owner }}/taxi-rps"
           TAG=${GITHUB_SHA::7}
           docker run -d --rm -p 8000:8000 \
             -e SKIP_MODEL_LOAD=true \
