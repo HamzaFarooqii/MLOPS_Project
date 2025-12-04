@@ -3,4 +3,6 @@ FROM apache/airflow:2.8.0
 # Install all Python dependencies up front as the airflow user to avoid repeated installs on start
 USER airflow
 COPY requirements.txt /requirements.txt
-RUN pip install --user --no-cache-dir -r /requirements.txt
+ENV PIP_DEFAULT_TIMEOUT=300 \
+    PIP_RETRIES=10
+RUN pip install --user --default-timeout=${PIP_DEFAULT_TIMEOUT} --retries=${PIP_RETRIES} --no-cache-dir -r /requirements.txt

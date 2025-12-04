@@ -1,0 +1,71 @@
+{
+  "id": null,
+  "title": "Taxi RPS",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Requests",
+      "targets": [
+        {
+          "expr": "inference_requests_total",
+          "refId": "A"
+        }
+      ],
+      "id": 1,
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "OOD Ratio",
+      "targets": [
+        {
+          "expr": "inference_ood_ratio",
+          "refId": "A"
+        }
+      ],
+      "id": 2,
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 }
+    },
+    {
+      "type": "gauge",
+      "title": "95p Latency (ms)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(inference_latency_seconds_bucket[5m])) by (le)) * 1000",
+          "refId": "A"
+        }
+      ],
+      "id": 3,
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "timeSeries",
+      "title": "Latency Distribution",
+      "targets": [
+        {
+          "expr": "rate(inference_latency_seconds_bucket[5m])",
+          "refId": "A"
+        }
+      ],
+      "id": 4,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 }
+    },
+    {
+      "type": "timeSeries",
+      "title": "Request Rate",
+      "targets": [
+        {
+          "expr": "rate(inference_requests_total[5m])",
+          "refId": "A"
+        }
+      ],
+      "id": 5,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 }
+    }
+  ]
+}

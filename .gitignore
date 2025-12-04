@@ -1,15 +1,35 @@
 __pycache__/
 *.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment files
 .env
 .env.local
+
+# MLflow runs
 mlruns/
+
+# Data (allow DVC tracked files)
 data/*
 !data/**/*.dvc
+
+# Airflow
 airflow/logs/
 airflow/venv/
-.dvc/config.local
-logs/
 airflow/*.pid
 airflow/*.db
+airflow/db.sqlite
 airflow.db
+
+# DVC local config
 .dvc/config.local
+
+# Logs
+logs/
+
+# IDE / OS
+*.DS_Store
+.vscode/
