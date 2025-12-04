@@ -1,7 +1,7 @@
 import glob
 import json
 import os
-from typing import List
+from typing import List, Optional
 
 import mlflow
 import pandas as pd
@@ -9,6 +9,9 @@ import pandas as pd
 PROCESSED_DIR = os.getenv("PROCESSED_DIR", "./data/processed")
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 MLFLOW_EXPERIMENT = os.getenv("MLFLOW_EXPERIMENT", "taxi_rps_model")
+MLFLOW_MODEL_NAME = os.getenv("MLFLOW_MODEL_NAME", "taxi_rps_model")
+REGISTER_MODEL = os.getenv("REGISTER_MODEL", "false").lower() == "true"
+MLFLOW_PROMOTE_STAGE = os.getenv("MLFLOW_PROMOTE_STAGE", "Production")
 
 
 def _select_features(df: pd.DataFrame) -> List[str]:
@@ -27,16 +30,16 @@ def _select_features(df: pd.DataFrame) -> List[str]:
     return found
 
 
-def train_model():
+def train_model(processed_path: Optional[str] = None):
     """Train a simple regression model on the latest processed snapshot and log to MLflow."""
     from sklearn.ensemble import RandomForestRegressor
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
     from sklearn.model_selection import train_test_split
+    from mlflow.models.signature import infer_signature
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
-    parquet_files = glob.glob(os.path.join(PROCESSED_DIR, "*.parquet"))
     data_source = "synthetic"
     df = pd.DataFrame(
         {
@@ -49,11 +52,21 @@ def train_model():
             "trip_distance": [1.5 + i * 0.015 for i in range(100)],
         }
     )
-    if parquet_files:
+
+    candidate_path = None
+    if processed_path:
+        if not os.path.exists(processed_path):
+            raise FileNotFoundError(f"Processed file not found: {processed_path}")
+        candidate_path = processed_path
+    else:
+        parquet_files = glob.glob(os.path.join(PROCESSED_DIR, "*.parquet"))
+        if parquet_files:
+            candidate_path = max(parquet_files, key=os.path.getctime)
+
+    if candidate_path:
         try:
-            latest_file = max(parquet_files, key=os.path.getctime)
-            df = pd.read_parquet(latest_file)
-            data_source = latest_file
+            df = pd.read_parquet(candidate_path)
+            data_source = candidate_path
         except Exception as exc:
             print(f"WARNING: Failed to read parquet files, using synthetic data. Details: {exc}")
 
@@ -116,8 +129,10 @@ def train_model():
         with mlflow.start_run(run_name="rf_trip_distance"):
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
+            signature = infer_signature(X_test, preds)
 
-            rmse = mean_squared_error(y_test, preds, squared=False)
+            mse = mean_squared_error(y_test, preds)
+            rmse = mse**0.5
             mae = mean_absolute_error(y_test, preds)
             r2 = r2_score(y_test, preds)
 
@@ -133,9 +148,27 @@ def train_model():
             )
             mlflow.log_metrics({"rmse": rmse, "mae": mae, "r2": r2})
 
-            if data_source != "synthetic":
+            if data_source != "synthetic" and os.path.exists(data_source):
                 mlflow.log_artifact(data_source, artifact_path="data_used")
-            mlflow.sklearn.log_model(model, artifact_path="model")
+            model_info = mlflow.sklearn.log_model(
+                model,
+                artifact_path="model",
+                signature=signature,
+                input_example=X_test.head(5),
+            )
+
+            if REGISTER_MODEL:
+                try:
+                    mv = mlflow.register_model(model_info.model_uri, MLFLOW_MODEL_NAME)
+                    if MLFLOW_PROMOTE_STAGE:
+                        mlflow.tracking.MlflowClient().transition_model_version_stage(
+                            name=MLFLOW_MODEL_NAME,
+                            version=mv.version,
+                            stage=MLFLOW_PROMOTE_STAGE,
+                            archive_existing_versions=True,
+                        )
+                except Exception as exc:
+                    print(f"WARNING: Model registry step failed: {exc}")
 
             print(
                 f"Training complete. RMSE={rmse:.4f}, MAE={mae:.4f}, R2={r2:.4f}. "
@@ -146,7 +179,8 @@ def train_model():
         if rmse is None:
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
-            rmse = mean_squared_error(y_test, preds, squared=False)
+            mse = mean_squared_error(y_test, preds)
+            rmse = mse**0.5
             mae = mean_absolute_error(y_test, preds)
             r2 = r2_score(y_test, preds)
 
@@ -154,3 +188,7 @@ def train_model():
     os.makedirs(os.path.dirname(metrics_out), exist_ok=True)
     with open(metrics_out, "w") as f:
         json.dump({"rmse": rmse, "mae": mae, "r2": r2}, f)
+
+
+if __name__ == "__main__":
+    train_model()

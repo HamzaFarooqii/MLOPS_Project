@@ -6,6 +6,9 @@ on:
 
 jobs:
   train-and-compare:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +65,7 @@ jobs:
 
       - name: Post CML report
         if: always()
+        continue-on-error: true
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
