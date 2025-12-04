@@ -34,6 +34,7 @@ jobs:
           python - <<'PY'
           import os
           import mlflow
+          from mlflow.exceptions import MlflowException
           
           tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
           model_uri = os.environ.get("MODEL_URI") or "models:/taxi_rps_model/Production"
@@ -45,8 +46,13 @@ jobs:
               mlflow.set_tracking_uri(tracking_uri)
               mlflow.set_registry_uri(tracking_uri)
           
-          mlflow.artifacts.download_artifacts(model_uri, dst_path=out_dir)
-          print(f"Downloaded {model_uri} to {out_dir}")
+          try:
+              mlflow.artifacts.download_artifacts(model_uri, dst_path=out_dir)
+              print(f"Downloaded {model_uri} to {out_dir}")
+          except MlflowException as exc:
+              print(f"WARNING: Model download failed ({exc}); continuing without baked model.")
+          except Exception as exc:
+              print(f"WARNING: Unexpected error during model download ({exc}); continuing without baked model.")
           PY
       
       - name: Build image
