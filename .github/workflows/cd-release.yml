@@ -33,8 +33,22 @@ jobs:
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
           MODEL_URI: ${{ secrets.MODEL_URI }}
         run: |
-          mkdir -p model_download
-          mlflow models download -m "${MODEL_URI:-models:/taxi_rps_model/Production}" -d model_download
+          python - <<'PY'
+import os
+import mlflow
+
+tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+model_uri = os.environ.get("MODEL_URI") or "models:/taxi_rps_model/Production"
+out_dir = "model_download"
+os.makedirs(out_dir, exist_ok=True)
+
+if tracking_uri:
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_registry_uri(tracking_uri)
+
+mlflow.artifacts.download_artifacts(model_uri, dst_path=out_dir)
+print(f"Downloaded {model_uri} to {out_dir}")
+PY
 
       - name: Build image
         run: |
