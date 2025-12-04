@@ -1,0 +1,28 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: rps-alerts
+    folder: RPS
+    interval: 1m
+    rules:
+      - uid: latency-high
+        title: High inference latency
+        condition: A
+        data:
+          - refId: A
+            datasourceUid: "prometheus"
+            model:
+              expr: "histogram_quantile(0.95, sum(rate(inference_latency_seconds_bucket[5m])) by (le))"
+              instant: true
+              intervalMs: 60000
+              legendFormat: ""
+              refId: A
+              range: false
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          severity: warning
+        labels:
+          service: taxi-rps
+        isPaused: false
