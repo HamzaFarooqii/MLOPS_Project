@@ -6,7 +6,12 @@ on:
 
 jobs:
   build-and-push:
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
     steps:
       - uses: actions/checkout@v4
 
@@ -23,9 +28,22 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps:latest -f server/Dockerfile .
+          TAG=${GITHUB_SHA::7}
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG -f server/Dockerfile .
 
       - name: Login & push
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps:latest
+          TAG=${GITHUB_SHA::7}
+          docker push $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:$TAG
+
+      - name: Smoke test container
+        run: |
+          TAG=${GITHUB_SHA::7}
+          docker run -d --rm -p 8000:8000 \
+            -e SKIP_MODEL_LOAD=true \
+            --name taxi-rps-smoke $IMAGE_NAME:$TAG
+          sleep 5
+          curl -f http://localhost:8000/health
+          docker stop taxi-rps-smoke

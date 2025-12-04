@@ -13,6 +13,7 @@ from starlette.responses import Response
 MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "https://dagshub.com/HamzaFarooqii/my-first-repo.mlflow")
 MODEL_URI = os.getenv("MODEL_URI", "models:/taxi_rps_model/Production")
 MODEL_LOAD_RETRIES = int(os.getenv("MODEL_LOAD_RETRIES", "3"))
+SKIP_MODEL_LOAD = os.getenv("SKIP_MODEL_LOAD", "false").lower() == "true"
 
 app = FastAPI(title="Taxi RPS Model API", version="1.0.0")
 mlflow.set_tracking_uri(MLFLOW_URI)
@@ -53,6 +54,13 @@ _drift_totals = {"total": 0, "ood": 0}
 @app.on_event("startup")
 def _load_model() -> None:
     global model
+    if SKIP_MODEL_LOAD:
+        class _Stub:
+            def predict(self, df):
+                return [0.0] * len(df)
+
+        model = _Stub()
+        return
     model = load_model_with_retry()
 
 
