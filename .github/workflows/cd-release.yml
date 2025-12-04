@@ -11,7 +11,7 @@ jobs:
       packages: write
     runs-on: ubuntu-latest
     env:
-      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_USERNAME || github.repository_owner }}/taxi-rps
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +26,21 @@ jobs:
           python -m pip install -r requirements.txt
           pip install mlflow
 
+      - name: Download model from registry
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+          MODEL_URI: ${{ secrets.MODEL_URI }}
+        run: |
+          mkdir -p model_download
+          mlflow models download -m "${MODEL_URI:-models:/taxi_rps_model/Production}" -d model_download
+
       - name: Build image
         run: |
+          if [ -z "${IMAGE_NAME%%/taxi-rps}" ]; then
+            echo "IMAGE_NAME is empty. Set DOCKERHUB_USERNAME secret."; exit 1;
+          fi
           TAG=${GITHUB_SHA::7}
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG -f server/Dockerfile .
 

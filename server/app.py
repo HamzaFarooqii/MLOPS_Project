@@ -14,6 +14,7 @@ MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "https://dagshub.com/HamzaFarooqii
 MODEL_URI = os.getenv("MODEL_URI", "models:/taxi_rps_model/Production")
 MODEL_LOAD_RETRIES = int(os.getenv("MODEL_LOAD_RETRIES", "3"))
 SKIP_MODEL_LOAD = os.getenv("SKIP_MODEL_LOAD", "false").lower() == "true"
+MODEL_LOCAL_PATH = os.getenv("MODEL_LOCAL_PATH")
 
 app = FastAPI(title="Taxi RPS Model API", version="1.0.0")
 mlflow.set_tracking_uri(MLFLOW_URI)
@@ -33,6 +34,8 @@ def load_model_with_retry() -> Any:
     last_exc: Exception | None = None
     for attempt in range(MODEL_LOAD_RETRIES):
         try:
+            if MODEL_LOCAL_PATH and os.path.exists(MODEL_LOCAL_PATH):
+                return mlflow.pyfunc.load_model(MODEL_LOCAL_PATH)
             return mlflow.pyfunc.load_model(MODEL_URI)
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
