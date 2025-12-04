@@ -10,62 +10,66 @@ jobs:
       contents: read
       packages: write
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
-      MODEL_URI: ${{ secrets.MODEL_URI }}
-      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
-      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
+      
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           pip install mlflow
-
+      
       - name: Download model from registry
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+          MODEL_URI: ${{ secrets.MODEL_URI }}
         run: |
           python - <<'PY'
-import os
-import mlflow
-
-tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
-model_uri = os.environ.get("MODEL_URI") or "models:/taxi_rps_model/Production"
-out_dir = "model_download"
-os.makedirs(out_dir, exist_ok=True)
-
-if tracking_uri:
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_registry_uri(tracking_uri)
-
-mlflow.artifacts.download_artifacts(model_uri, dst_path=out_dir)
-print(f"Downloaded {model_uri} to {out_dir}")
-PY
-
+          import os
+          import mlflow
+          
+          tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+          model_uri = os.environ.get("MODEL_URI") or "models:/taxi_rps_model/Production"
+          out_dir = "model_download"
+          
+          os.makedirs(out_dir, exist_ok=True)
+          
+          if tracking_uri:
+              mlflow.set_tracking_uri(tracking_uri)
+              mlflow.set_registry_uri(tracking_uri)
+          
+          mlflow.artifacts.download_artifacts(model_uri, dst_path=out_dir)
+          print(f"Downloaded {model_uri} to {out_dir}")
+          PY
+      
       - name: Build image
         run: |
-          if [ -z "$IMAGE_NAME" ]; then echo "Set DOCKERHUB_USERNAME secret"; exit 1; fi
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "Set DOCKERHUB_USERNAME secret"
+            exit 1
+          fi
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
           TAG=${GITHUB_SHA::7}
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$TAG -f server/Dockerfile .
-
+      
       - name: Login & push
         run: |
-          if [ -z "$IMAGE_NAME" ]; then echo "Set DOCKERHUB_USERNAME secret"; exit 1; fi
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           TAG=${GITHUB_SHA::7}
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:$TAG
-
+      
       - name: Smoke test container
         run: |
-          if [ -z "$IMAGE_NAME" ]; then echo "Set DOCKERHUB_USERNAME secret"; exit 1; fi
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/taxi-rps
           TAG=${GITHUB_SHA::7}
           docker run -d --rm -p 8000:8000 \
             -e SKIP_MODEL_LOAD=true \
